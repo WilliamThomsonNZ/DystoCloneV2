@@ -1,4 +1,4 @@
-export const CONTRACT_ADDRESS = "0x422893349cDd18aF69D4E50B624243F285b84457";
+export const CONTRACT_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 export const CONTRACT_ABI = [
   {
     "inputs": [],
@@ -271,24 +271,6 @@ export const CONTRACT_ABI = [
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "_proof",
-        "type": "bytes32[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_mintAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "mintWhitelist",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "name",
     "outputs": [
@@ -513,6 +495,19 @@ export const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "tokenId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -613,7 +608,7 @@ export const CONTRACT_ABI = [
   }
 ];
 
-export const TOKEN_CONTRACT_ADDRESS = "0x163D9e49e17AdC9B3A5FD0bcbA3f6904Dca9518F";
+export const TOKEN_CONTRACT_ADDRESS = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
 export const TOKEN_CONTRACT_ABI = [
   {
     "inputs": [
@@ -984,4 +979,4 @@ export const TOKEN_CONTRACT_ABI = [
     "stateMutability": "nonpayable",
     "type": "function"
   }
-];
+]

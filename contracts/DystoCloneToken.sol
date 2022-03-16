@@ -1,33 +1,34 @@
 // SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-pragma solidity ^0.8.0;
 
-contract DystoCloneToken is ERC20 {
-    //Creates an interface of the erc721 dystoclone token.
+contract ScrapToken is ERC20("Scrap", "SCRAP"), Ownable {
+    uint256 public DAILY_RATE = 100 ether;
+    uint256 public LAST_EPOCH = 1924991999;
+    mapping(address => uint256) public rewards;
+    mapping(address => uint256) public lastUpdate;
+    mapping(address => bool) public claimedTokens;
 
-    uint256 public dailyRate = 100 ether;
-    uint256 public lastEpoch = 1924991999;
+    IERC721 public dystoApez;
 
-    mapping(address => uint256) rewards;
-    mapping(address => uint256) lastUpdate;
-
-    IERC721 public dystoClone;
-
-    constructor(address _dystoCloneAddress) ERC20("DystoCloneToken", "DCT") {
-        dystoClone = IERC721(_dystoCloneAddress);
+    constructor(address _dystoApez) {
+        dystoApez = IERC721(_dystoApez);
     }
 
-    function claimReward() external {
-        require(lastUpdate[msg.sender] < lastEpoch, "CLAIM_HAS_ENDED");
-        uint256 calculatedRewards = rewards[msg.sender] +
+    function claimTokens() public {
+        require(dystoApez.balanceOf(msg.sender) > 0, "DOESNT_OWN_DYSTOAPE");
+        uint256 claimableAmount = rewards[msg.sender] +
             calculateRewards(msg.sender);
-        require(calculatedRewards > 0, "NOTHING_TO_CLAIM");
+        require(claimableAmount > 0, "NO_CLAIMABLE_TOKENS");
+        console.log(claimableAmount);
         rewards[msg.sender] = 0;
-        //Need this otherwise you will be able to claim from the beginning allways
         lastUpdate[msg.sender] = block.timestamp;
-        _mint(msg.sender, calculatedRewards);
+        _mint(msg.sender, claimableAmount);
     }
 
     function calculateRewards(address _account)
@@ -35,63 +36,61 @@ contract DystoCloneToken is ERC20 {
         view
         returns (uint256)
     {
-        uint256 claimableEpoch = Math.min(block.timestamp, lastEpoch);
+        // This must be how the amount in calculated
+        uint256 claimableEpoch = Math.min(block.timestamp, LAST_EPOCH);
         uint256 timeDifference = claimableEpoch - lastUpdate[_account];
-        if (timeDifference < 0) {
-            //Calculates the rate
-            uint256 standardRewardRate = dystoClone.balanceOf(_account) *
-                ((dailyRate * timeDifference) / 86400);
-            //Bonus rate for holders of more than 1 dysto clone
-            uint256 bonusRate = (calculateBonusAmount(msg.sender) *
-                timeDifference) / 86400;
-            return standardRewardRate + bonusRate;
+        if (timeDifference > 0) {
+            //The end of this statement gives us per day.
+            uint256 bonus = (calculateBonus(_account) * timeDifference) / 86400;
+            uint256 dailyIncome = dystoApez.balanceOf(_account) *
+                ((DAILY_RATE * timeDifference) / 86400);
+            console.log("calculatedRewards", bonus, dailyIncome);
+            return bonus + dailyIncome;
         }
         return 0;
-    }
-
-    function calculateBonusAmount(address _account)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 dystoCloneBalance = dystoClone.balanceOf(_account);
-        if (dystoCloneBalance >= 20) return 400 ether;
-        if (dystoCloneBalance >= 10) return 150 ether;
-        if (dystoCloneBalance >= 5) return 50 ether;
-        if (dystoCloneBalance >= 2) return 10 ether;
-        return 0;
-    }
-
-    function getClaimableRewards(address _account)
-        public
-        view
-        returns (uint256)
-    {
-        return rewards[_account] + calculateRewards(_account);
     }
 
     function updateReward(
         address _from,
         address _to,
-        uint256 _tokenId
+        uint256 _tokenID
     ) external {
         require(
-            _from == address(0) || dystoClone.ownerOf(_tokenId) == _from,
+            _from == address(0) || dystoApez.ownerOf(_tokenID) == _from,
             "NOT_OWNER_OF_APE"
         );
-        require(msg.sender == address(dystoClone), "ONLY_DYSTOCLONE_CONTRACT");
-        //Ensures that when an owner of nft transfers out they don't lose their rewards
+        require(msg.sender == address(dystoApez), "ONLY_DYSTOAPEZ");
+        //Not the contract
         if (_from != address(0)) {
-            if (lastUpdate[_from] > 0 && lastUpdate[_from] < lastEpoch) {
+            //Checks the last time the user claimed was above 0 and that tokens are still claimable
+            if (lastUpdate[_from] > 0 && lastUpdate[_from] < LAST_EPOCH) {
                 rewards[_from] += calculateRewards(_from);
             }
             lastUpdate[_from] = block.timestamp;
         }
         if (_to != address(0)) {
-            if (lastUpdate[_to] > 0 && lastUpdate[_to] < lastEpoch) {
+            //Checks the last time the user claimed was above 0 and that tokens are still claimable
+            if (lastUpdate[_to] > 0 && lastUpdate[_to] < LAST_EPOCH) {
                 rewards[_to] += calculateRewards(_to);
             }
             lastUpdate[_to] = block.timestamp;
         }
+    }
+
+    function calculateBonus(address _account) internal view returns (uint256) {
+        uint256 amountOfApes = dystoApez.balanceOf(_account);
+        if (amountOfApes >= 20) return 400 ether;
+        if (amountOfApes >= 10) return 150 ether;
+        if (amountOfApes >= 5) return 50 ether;
+        if (amountOfApes >= 2) return 10 ether;
+        return 0;
+    }
+
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        super._beforeTokenTransfer(from, to, amount);
     }
 }

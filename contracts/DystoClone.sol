@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+pragma solidity ^0.8.7;
 
-interface IDystoCloneToken {
+interface IScrapToken {
     function updateReward(
         address _from,
         address _to,
         uint256 _tokenId
     ) external;
 
-    function getClaimableRewards(address _account)
+    function getClaimableReward(address _account)
         external
         view
         returns (uint256);
@@ -21,80 +19,27 @@ interface IDystoCloneToken {
     function claimReward() external;
 }
 
-contract DystoClone is ERC721Enumerable, Ownable {
+contract DystoApez is ERC721, Ownable {
     using Strings for uint256;
-    uint256 public maxTotalSupply = 4444;
+    uint256 public maxSupply = 4444;
     uint256 public mintPrice = 0.044 ether;
-    uint256 public maxWhitelistMint = 2;
-    uint256 public maxPerTx = 5;
-    bool private whitelistActive = false;
-    bool paused = true;
-    //Keep track of the  amount minted by a certain address
-    mapping(address => uint256) private amountMinted;
-    bytes32 private whitelistMerkleRoot;
+    uint256 public tokenID = 0;
 
-    event whiteListStateChange(bool _whiteListActive);
-    IDystoCloneToken public dystoCloneToken;
+    IScrapToken public scrapToken;
 
-    constructor() ERC721("Dysto Clone", "DC") {}
+    constructor() ERC721("DystoApez", "DA") {}
 
-    function setWhitelistActive(bool _value) public onlyOwner {
-        whitelistActive = _value;
-        emit whiteListStateChange(_value);
+    function mint(uint256 _amount) public payable {
+        require(_amount + tokenID <= maxSupply, "MAX_SUPPLY_REACHED");
+        require(msg.value == (mintPrice * _amount), "INVALID_ETH_SENT");
+        for (uint256 i = 1; i <= _amount; i++) {
+            _safeMint(msg.sender, tokenID + i);
+        }
+        tokenID += _amount;
     }
 
-    function setContractPause(bool _value) public onlyOwner {
-        paused = _value;
-    }
-
-    function setWhitelistMerkleRoot(bytes32 _root) public onlyOwner {
-        whitelistMerkleRoot = _root;
-    }
-
-    function mintWhitelist(bytes32[] calldata _proof, uint256 _mintAmount)
-        external
-        payable
-    {
-        uint256 supply = totalSupply();
-        require(whitelistActive == true, "Whitelist is not active");
-        require(
-            supply + _mintAmount <= maxTotalSupply,
-            "Unable to mint that many"
-        );
-        require(
-            msg.value >= mintPrice * _mintAmount,
-            "Mint price is 0.044 ether per NFT"
-        );
-
-        require(
-            amountMinted[msg.sender] + _mintAmount <= maxWhitelistMint,
-            "Can not mint that many"
-        );
-        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-        require(
-            MerkleProof.verify(_proof, whitelistMerkleRoot, leaf),
-            "Not on whitelist"
-        );
-
-        amountMinted[msg.sender] += _mintAmount;
-        _safeMint(msg.sender, _mintAmount);
-    }
-
-    function mintPublic(uint256 _mintAmount) external payable {
-        uint256 supply = totalSupply();
-        require(paused == false, "Sale is not active");
-        require(
-            supply + _mintAmount <= maxTotalSupply,
-            "Unable to mint that many"
-        );
-        require(
-            msg.value >= mintPrice * _mintAmount,
-            "Mint price is 0.044 ether per NFT"
-        );
-        require(_mintAmount <= maxPerTx, "Maximum per transaction is 5");
-
-        amountMinted[msg.sender] += _mintAmount;
-        _safeMint(msg.sender, _mintAmount);
+    function setScrapToken(address _account) public onlyOwner {
+        scrapToken = IScrapToken(_account);
     }
 
     function _beforeTokenTransfer(
@@ -102,20 +47,7 @@ contract DystoClone is ERC721Enumerable, Ownable {
         address to,
         uint256 tokenId
     ) internal virtual override {
-        dystoCloneToken.updateReward(from, to, tokenId);
+        scrapToken.updateReward(from, to, tokenId);
         super._beforeTokenTransfer(from, to, tokenId);
-    }
-
-    function setDystoCloneToken(address _token) external onlyOwner {
-        require(_token != address(dystoCloneToken), "TOKEN_ALREADY_SET");
-        require(_token != address(0), "TOKEN_ADDRESS_ZERO");
-        dystoCloneToken = IDystoCloneToken(_token);
-    }
-
-    function withdraw() public payable onlyOwner {
-        (bool success, ) = payable(msg.sender).call{
-            value: address(this).balance
-        }("");
-        require(success);
     }
 }

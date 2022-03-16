@@ -11,6 +11,7 @@ export default function Home() {
   const web3ModalRef = useRef(null);
   const [walletConnected, setWalletConnected] = useState(false);
   const [mintAmount, setMintAmount] = useState(1);
+  const [tokenAddress, setTokenAddress] = useState("");
   async function connectWallet (){
     try {
       await getProviderOrSigner();
@@ -24,7 +25,7 @@ export default function Home() {
     const provider = await web3ModalRef.current.connect();
     const web3Provider = new providers.Web3Provider(provider);
     const { chainId } = await web3Provider.getNetwork();
-    if (chainId !== 4) {
+    if (chainId !== 31337) {
       window.alert("Change the network to Localhost");
       throw new Error("Change network to localhost");
     }
@@ -51,7 +52,17 @@ export default function Home() {
       console.error(err);
     }
   }
-
+  async function updateTokenAddress(){
+    try{
+      const signer = await getProviderOrSigner(true);
+      const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      const tx = await contract.setDystoCloneToken(tokenAddress);
+      await tx.wait();
+      console.log("token updated");
+    }catch(err){
+      console.error(err);
+    }
+  }
   async function handleMintClick(){
     try{
       const signer = await getProviderOrSigner(true);
@@ -88,6 +99,9 @@ export default function Home() {
           <option value={1}>1</option>
           <option value={2}>2</option>
         </select>
+        <input value={tokenAddress} type="text" onChange={e => setTokenAddress(e.target.value)}/>
+        <button onClick={e => updateTokenAddress(e)}>Add token Address</button>
+
     </div>
   )
 }
